@@ -8,8 +8,12 @@ import math
 alphabet = 'abcdefghijklmnopqrstuvwxyz '
 alphabet_set = set([alphabet[i] for i in range(len(alphabet))])
 
+def process_letters(text):
+    text = text.replace('\n', ' ').lower()
+    return ''.join( ( text[i] for i in range(len(text)) if text[i] in alphabet_set ) )
+
 def raw_letters(text_file):
-    text = text_file.read_text().replace('\n', ' ').lower()
+    text = process_letters(text_file.read_text())
     return ''.join( ( text[i] for i in range(len(text)) if text[i] in alphabet_set ) )
 
 def read_shakespeare():
@@ -38,11 +42,25 @@ carroll_frequencies = frequencies(lewis_carroll)
 
 def freq_distance(f1, f2):
     sq_dist = 0.0
+    n = 0
     for k in f1:
         if k in f2:
+            n = n + 1
             diff = f1[k] - f2[k]
             sq_dist = sq_dist + (diff * diff)
-    return math.sqrt(sq_dist)
+    return math.sqrt(sq_dist / n)
+
+def log_odds(f1, f2):
+    common_keys = [k for k in f1 if k in f2]
+    return { k: math.log(f1[k]) - math.log(f2[k]) for k in common_keys }
+
+s2c_log_odds = log_odds(shakespeare_frequencies, carroll_frequencies)
+
+def log_score(log_odds, text):
+    sum = 0.0
+    for i in range(len(text)):
+        sum += log_odds[text[i]]
+    return sum / max(1, len(text))
 
 def random_string(str, length):
     offset = random.randint(0, len(str) - length - 1)
@@ -54,16 +72,15 @@ def random_shakespeare(length):
 def random_lewis_carroll(length):
     return random_string(lewis_carroll, length)
 
-def test_text(text, margin=0.025):
-    f = frequencies(text)
-    shakes_dist = freq_distance(f, shakespeare_frequencies)
-    lewis_dist = freq_distance(f, carroll_frequencies)
-    delta = abs(shakes_dist - lewis_dist)
+def test_text(text, margin=0.0):
+    text = process_letters(text)
+    s2c_score = log_score(s2c_log_odds, text)
+    delta = abs(s2c_score)
     if delta >= margin:
-        if shakes_dist < lewis_dist:
-            print('%0.5f Shakespeare' % delta)
+        if s2c_score >= 0.0:
+            print('%0.5f Shakespeare' % s2c_score)
         else:
-            print('%0.5f Lewis Carroll' % delta)
+            print('%0.5f Lewis Carroll' % s2c_score)
     else:
         #return '%0.5f ???' % delta
         pass
